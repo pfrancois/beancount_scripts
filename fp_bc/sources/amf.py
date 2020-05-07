@@ -1,34 +1,18 @@
 # -*- coding: utf-8 -*-
 """ source pour les sicav amf """
 
-import typing
 import datetime
-import decimal
 import time
 import pytz
 from beancount.prices import source as bean_source
 import bs4  # type: ignore
-import logging
 
 import requests
 from fp_bc import utils
 
 
-date_str = typing.Union[datetime.date, str, None]
-T = typing.TypeVar("T")
-KT = typing.TypeVar("KT")
-
-
-
 class AmfException(utils.UtilsException):
     """juste une exception qui gere le format"""
-
-    pass
-
-
-class FormatException(utils.UtilsException):
-    """juste une exception qui gere le format"""
-
     pass
 
 
@@ -65,5 +49,4 @@ class Source(bean_source.Source):
             montant_req = utils.to_decimal(s=result["Valeur (€) :"], virgule=True, space=True)
         except Exception:
             raise AmfException("%s inconnu pour l'amf", ticker)
-        logging.debug(f"{ticker} => {montant_req}")
         return bean_source.SourcePrice(montant_req, dt, "EUR")
