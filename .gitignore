@@ -44,6 +44,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.pyc
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -131,3 +132,5 @@ operations_recurentes.yaml
 script_dev/test.py
 personal.import_config
 visual_studio_workspace.code-workspace
+*.pyc
+fp_bc/sources/__pycache__/amf.cpython-38.pyc

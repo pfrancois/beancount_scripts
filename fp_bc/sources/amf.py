@@ -3,6 +3,7 @@
 
 import datetime
 import time
+import logging
 import pytz
 from beancount.prices import source as bean_source
 import bs4  # type: ignore
@@ -18,6 +19,8 @@ class AmfException(utils.UtilsException):
 
 class Source(bean_source.Source):
     def get_latest_price(self, ticker):
+        log = logging.getLogger()
+        log.info(f"AMF:{ticker}")
         time.sleep(5)
         payload = {
             "varvalidform": "on",

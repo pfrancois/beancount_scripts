@@ -4,6 +4,7 @@ from beancount.prices import source as bean_source
 
 import requests
 from beancount.core.number import D
+import logging
 
 
 class YahooError(ValueError):
@@ -12,6 +13,8 @@ class YahooError(ValueError):
 
 class Source(bean_source.Source):
     def get_latest_price(self, ticker):
+        log = logging.getLogger()
+        log.info(f"yahoo:{ticker}")
         response = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/%s" % ticker)
         content = next(iter(response.json(parse_float=D).values()))
         if response.status_code != requests.codes.ok:
@@ -29,6 +32,4 @@ class Source(bean_source.Source):
         except KeyError:
             raise YahooError("Invalid response from Yahoo: {}".format(repr(result)))
         currency = result["meta"]["currency"]
-
         return bean_source.SourcePrice(price, trade_time, currency)
-
