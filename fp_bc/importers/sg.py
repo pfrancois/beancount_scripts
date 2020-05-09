@@ -93,6 +93,8 @@ class ImporterSG(importer.ImporterProtocol):
         for regle_tiers in self.tiers_update:
             if re.search(regle_tiers[0], tiers, re.UNICODE | re.IGNORECASE):
                 tiers = regle_tiers[1]
+        else:
+            tiers = tiers.capitalize()
         return tiers
 
     def extract(self, file: t.IO, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
