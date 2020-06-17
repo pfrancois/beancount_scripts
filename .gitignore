@@ -4,13 +4,12 @@ __pycache__/
 *.sublim*
 *.xls*
 .editorconfig
-/.cache/
-/.ipynb_checkpoints/
-!/import_csv_bam.py
+.cache/
+.ipynb_checkpoints/
 /htmlcov/
 /SyncToy_1e26bd68-68f6-44bb-80a8-8a6c5b57c20f.dat
 *.lnk
-/test-ouptut/
+test-ouptut/
 history_import/
 archive/
 output/
@@ -119,7 +118,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+site
 
 # mypy
 .mypy_cache/
@@ -133,4 +132,4 @@ script_dev/test.py
 personal.import_config
 visual_studio_workspace.code-workspace
 *.pyc
-fp_bc/sources/__pycache__/amf.cpython-38.pyc
+*.pyc
