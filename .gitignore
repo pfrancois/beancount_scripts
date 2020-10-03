@@ -124,6 +124,7 @@ site
 .mypy_cache/
 template_mmb.db
 .vscode/
+**/__pycache__/
 *.bak
 opes_json.json
 opes.json
@@ -131,5 +132,4 @@ operations_recurentes.yaml
 script_dev/test.py
 personal.import_config
 visual_studio_workspace.code-workspace
-*.pyc
-*.pyc
+**/*.pyc
