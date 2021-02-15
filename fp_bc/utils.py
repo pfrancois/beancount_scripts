@@ -10,6 +10,8 @@ import datetime
 import time
 import math
 from uuid import uuid4
+from beancount.core import data  # pylint:disable=E0611
+from beancount.parser import printer
 
 
 class ExcelCsv(csv.Dialect):  # pylint: disable=R0903
@@ -272,3 +274,51 @@ def typetostr(liste, s, defaut="0"):
     except ValueError:  # on a un cas à defaut
         s = defaut
     return s
+
+
+# trucs commun pour beancount
+
+
+NoneType = type(None)
+bc_directives = t.Union[
+    data.Open,
+    data.Close,
+    data.Commodity,
+    data.Balance,
+    data.Pad,
+    data.Transaction,
+    data.Note,
+    data.Event,
+    data.Query,
+    data.Price,
+    data.Document,
+    data.Custom,
+]
+
+
+def printer_entries(entries: t.Sequence[bc_directives], file: t.IO) -> None:
+    previous_type = type(entries[0]) if entries else None
+    eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
+    for entry in entries:
+        entry_type = type(entry)
+        if not isinstance(entry, (data.Close, data.Open)):
+            if isinstance(entry, (data.Transaction, data.Commodity)) or entry_type is not previous_type:
+                file.write("\n")
+        previous_type = entry_type
+        string = "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
+        file.write(string)
+
+
+def check_before_add(entry: data.Transaction) -> None:
+    log = logging.getLogger("Main")
+    try:
+        data.sanity_check_types(entry)
+        for posting in entry.postings:
+            if posting.account is None:
+                raise AssertionError("problem")
+        if len(entry.postings) == 0:
+            raise AssertionError("problem")
+    except AssertionError as exp:
+        log.error(
+            "error , problem assertion %s in the transaction %s", pprint.pformat(exp), pprint.pformat(entry),
+        )
