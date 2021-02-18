@@ -181,10 +181,7 @@ class ImporterSG(importer.ImporterProtocol):
                         narration = "%s => %s" % (short(self.account_root), short(cpt2))
                     else:
                         narration = "%s => %s" % (short(cpt2), short(self.account_root))
-                    if cpt2 == self.account_visa:
-                        links = frozenset((f"{date_releve.strftime('%Y-%m')}",))
-                    else:
-                        links = data.EMPTY_SET
+                    links = data.EMPTY_SET
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
@@ -376,7 +373,7 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                     payee=tiers,
                     narration="",
                     tags=data.EMPTY_SET,
-                    links=frozenset((f"{date_visa.strftime('%Y-%m')}",)),
+                    links=data.EMPTY_SET,
                     postings=[posting_1, posting_2],
                 )
                 try:
