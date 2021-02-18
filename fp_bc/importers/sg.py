@@ -321,7 +321,6 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                 CsvUnicodeReader(fichier, champs=["date", "date_visa", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
             ):
                 tiers = None
-                cpt2 = None
                 meta = data.new_metadata(file.name, index)
                 meta["comment"] = row.detail.strip()
                 meta["update_time"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
