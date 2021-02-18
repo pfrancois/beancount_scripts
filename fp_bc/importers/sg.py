@@ -111,7 +111,6 @@ class ImporterSG(importer.ImporterProtocol):
                 narration = ""
                 meta = data.new_metadata(file.name, index)
                 meta["comment"] = row.detail.strip()
-                meta["update_time"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 flag = None
                 try:
                     montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
@@ -320,7 +319,6 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                 tiers = None
                 meta = data.new_metadata(file.name, index)
                 meta["comment"] = row.detail.strip()
-                meta["update_time"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 flag = flags.FLAG_OKAY
                 try:
                     montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
@@ -328,7 +326,6 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                     self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
                     continue
                 date = utils.strpdate(row.row["date"], "%d/%m/%Y")
-                date_visa = utils.strpdate(row.row["date_visa"], "%d/%m/%Y")
                 reg_visa = r"\d\d\d\d\/(?P<desc>.*) \d"
                 retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                 if retour:
