@@ -5,7 +5,7 @@ from os import path
 import pprint
 import decimal
 import typing as t
-import datetime
+import datetime  # noqa
 
 from beancount.core import amount
 from beancount.core import account
@@ -52,9 +52,9 @@ class ImporterSG(importer.ImporterProtocol):
         tiers_cat: t.Sequence[t.Sequence[str]],
         currency: str,
         account_root: str,
-        account_cash: str,
+        account_cash: t.Union[str, NoneType],
         cat_default: str,
-        account_visa: str,
+        account_visa: t.Union[str, NoneType],
         account_id: str,
     ) -> None:
         self.tiers_update = tiers_update
@@ -62,9 +62,9 @@ class ImporterSG(importer.ImporterProtocol):
         self.logger = logging.getLogger(__file__)  # pylint: disable=W0612
         self.currency = currency
         self.account_root = account_root
-        self.account_cash = account_cash
+        self.account_cash = account_cash  # si none, pas de gestion du cash, on met tout en non affecte
         self.cat_default = cat_default
-        self.account_visa = account_visa
+        self.account_visa = account_visa  # si none pas de gestion d'un compte separé visa
         self.account_id = account_id
 
     def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
@@ -110,11 +110,15 @@ class ImporterSG(importer.ImporterProtocol):
                 cpt2 = None
                 narration = ""
                 meta = data.new_metadata(file.name, index)
-                meta["comment"] = row.detail.strip()
+                if "CHEQUE" not in row.detail:
+                    meta["comment"] = row.detail.strip()
+                else:
+                    narration = row.detail.strip()
                 flag = None
                 try:
                     montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
                 except decimal.InvalidOperation:
+                    error = True
                     self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
                     continue
                 date_releve = utils.strpdate(row.row["date"], "%d/%m/%Y")
@@ -125,7 +129,10 @@ class ImporterSG(importer.ImporterProtocol):
                         self.logger.error(f"attention , probleme regex_retrait pour operation ligne {index}")
                         error = True
                         continue
-                    cpt2 = self.account_cash
+                    if self.account_cash:
+                        cpt2 = self.account_cash
+                    else:
+                        cpt2 = self.cat_default
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     posting_2 = data.Posting(
                         account=cpt2,
@@ -135,11 +142,12 @@ class ImporterSG(importer.ImporterProtocol):
                         meta=None,
                         price=None,
                     )
-                    tiers = "Virement"
-                    if montant_releve.number < 0:
-                        narration = "%s => %s" % (short(self.account_root), short(cpt2))
-                    else:
-                        narration = "%s => %s" % (short(cpt2), short(self.account_root))
+                    tiers = "Retrait"
+                    if self.account_cash:
+                        if montant_releve.number < 0:
+                            narration = "%s => %s" % (short(self.account_root), short(cpt2))
+                        else:
+                            narration = "%s => %s" % (short(cpt2), short(self.account_root))
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
@@ -164,7 +172,12 @@ class ImporterSG(importer.ImporterProtocol):
                     cpt2 = "Assets:Titre:PEE:Cash"
                 # paiment ou credit carte bleu
                 if "DEBIT MENSUEL CARTE" in row.detail or "CREDIT MENSUEL CARTE" in row.detail:
-                    cpt2 = self.account_visa
+                    if self.account_visa:
+                        cpt2 = self.account_visa
+                    else:
+                        error = True
+                        self.logger.error("attention ce compte n'est pas prévu pour avoir un compte carte visa separé")
+                        continue
                 if cpt2:  # VIREMENT interne
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     posting_2 = data.Posting(
@@ -201,6 +214,10 @@ class ImporterSG(importer.ImporterProtocol):
                     retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                     if retour:
                         tiers = retour.group("desc")
+                        if date_releve < utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y"):
+                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year-1}", "%d/%m/%Y")
+                        else:
+                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y")
                         if not tiers:
                             error = True
                             self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
@@ -211,7 +228,10 @@ class ImporterSG(importer.ImporterProtocol):
                         self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                         self.logger.error(f"{row.detail}")
                         continue
-                    posting_1 = data.Posting(account=self.account_visa, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
+                    if self.account_visa:
+                        posting_1 = data.Posting(account=self.account_visa, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
+                    else:
+                        posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     tiers = self.tiers_update_verifie(tiers).strip()
 
                     cpt2 = self.cat(tiers)
@@ -221,7 +241,7 @@ class ImporterSG(importer.ImporterProtocol):
                     )
                     transac = data.Transaction(
                         meta=meta,
-                        date=date_releve,
+                        date=date_visa,
                         flag=flag,
                         payee=tiers,
                         narration="",
@@ -243,8 +263,12 @@ class ImporterSG(importer.ImporterProtocol):
                             self.logger.error("attention , probleme regex pour operation ligne %s", index)
                             continue
                         # prelevement
-                        if "PRELEVEMENT EUROPEEN" in row.detail:
-                            tiers = f'{row.in_detail(r" DE: (.+?) ID:")}'
+                        if "PRELEVEMENT EUROPEEN" in row.detail or "PRLV EUROPEEN ACC" in row.detail:
+                            tiers = f'{row.in_detail(r"DE:(.+?) ID:").strip()}'
+                            if tiers == "None":
+                                error = True
+                                self.logger.error("attention , probleme regex pour operation ligne %s", index)
+                                continue
                         else:
                             if "VIR RECU" in row.detail and not tiers:
                                 tiers = row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) ")
@@ -281,6 +305,17 @@ class ImporterSG(importer.ImporterProtocol):
                     entries.append(transac)
         if error:
             raise Exception("au moins une erreur")
+        with open(file.name, "r", encoding="windows-1252") as fichier:
+            row = fichier.readline().split(";")
+        meta = data.new_metadata(file.name, index)
+        entry = data.Balance(account=self.account_root,
+                                amount=amount.Amount(utils.to_decimal(row[5][:-5]), self.currency),
+                                meta=meta,
+                                date=utils.strpdate(row[4], "%d/%m/%Y"), tolerance=None, diff_amount=None)
+        try:
+            data.sanity_check_types(entry)
+        except AssertionError as exp:
+            self.logger.error(f"error , problem assertion {pprint.pformat(exp)} in the balance {pprint.pformat(entry)}")
         return entries
 
 
@@ -323,6 +358,7 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                 try:
                     montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
                 except decimal.InvalidOperation:
+                    error = True
                     self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
                     continue
                 date = utils.strpdate(row.row["date"], "%d/%m/%Y")
@@ -341,17 +377,17 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                             self.logger.error(f"regle:{regle_tiers[0]} - tiers: {tiers}")
                             self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                             self.logger.error(f"{row.detail}")
-                            raise Exception('erreur')
+                            raise Exception("erreur")
                     if not tiers:
                         error = True
                         self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                         self.logger.error(f"{row.detail}")
-                        raise Exception('erreur')
+                        raise Exception("erreur")
                 else:
                     error = True
                     self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                     self.logger.error(f"{row.detail}")
-                    raise Exception('erreur')
+                    raise Exception("erreur")
 
                 cat = None
                 for regle_cat in self.tiers_cat:
