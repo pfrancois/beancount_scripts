@@ -311,9 +311,10 @@ class ImporterSG(importer.ImporterProtocol):
         entry = data.Balance(account=self.account_root,
                                 amount=amount.Amount(utils.to_decimal(row[5][:-5]), self.currency),
                                 meta=meta,
-                                date=utils.strpdate(row[4], "%d/%m/%Y"), tolerance=None, diff_amount=None)
+                                date=utils.strpdate(row[4], "%d/%m/%Y") + datetime.timedelta(days=1), tolerance=None, diff_amount=None)
         try:
             data.sanity_check_types(entry)
+            entries.append(entry)
         except AssertionError as exp:
             self.logger.error(f"error , problem assertion {pprint.pformat(exp)} in the balance {pprint.pformat(entry)}")
         return entries
