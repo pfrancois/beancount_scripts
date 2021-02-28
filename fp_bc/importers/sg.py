@@ -18,6 +18,9 @@ from fp_bc.utils import CsvUnicodeReader
 from fp_bc import utils
 
 
+__version__ = "1.0.0"
+
+
 def short(account_name: str) -> str:
     if account.leaf(account_name) == "Caisse":
         return "Caisse"
@@ -67,6 +70,9 @@ class ImporterSG(importer.ImporterProtocol):
         self.account_visa = account_visa  # si none pas de gestion d'un compte separé visa
         self.account_id = account_id
 
+    def name(self) -> str:
+        return "{}.{}".format(self.__class__.__name__, self.account_id)
+
     def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
         return re.match(f"{self.account_id}.csv", path.basename(file.name))
 
@@ -80,9 +86,7 @@ class ImporterSG(importer.ImporterProtocol):
                 if posting.account is None:
                     raise AssertionError("problem")
         except AssertionError as exp:
-            self.logger.error(
-                "error , problem assertion %s in the transaction %s", pprint.pformat(exp), pprint.pformat(entry),
-            )
+            self.logger.error(f"error , problem assertion {pprint.pformat(exp)} in the transaction {pprint.pformat(entry)}")
 
     def cat(self, tiers: str) -> str:
         for regle_cat in self.tiers_cat:
@@ -102,7 +106,7 @@ class ImporterSG(importer.ImporterProtocol):
         # Open the CSV file and create directives.
         entries = []
         error = False
-        with open(file.name, "r", encoding="windows-1252") as fichier:
+        with file as fichier:
             for index, row in enumerate(
                 CsvUnicodeReader(fichier, champs=["date", "libelle", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
             ):
@@ -215,7 +219,7 @@ class ImporterSG(importer.ImporterProtocol):
                     if retour:
                         tiers = retour.group("desc")
                         if date_releve < utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y"):
-                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year-1}", "%d/%m/%Y")
+                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year - 1}", "%d/%m/%Y")
                         else:
                             date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y")
                         if not tiers:
@@ -235,7 +239,6 @@ class ImporterSG(importer.ImporterProtocol):
                     tiers = self.tiers_update_verifie(tiers).strip()
 
                     cpt2 = self.cat(tiers)
-
                     posting_2 = data.Posting(
                         account=cpt2, units=amount.Amount(montant_releve.number * -1, self.currency), cost=None, flag=None, meta=None, price=None,
                     )
@@ -260,14 +263,14 @@ class ImporterSG(importer.ImporterProtocol):
                             tiers = re.search(regex_virement, row.detail, re.UNICODE | re.IGNORECASE).group(1)
                         if "VIR EUROPEEN EMIS" in row.detail and not tiers:
                             error = True
-                            self.logger.error("attention , probleme regex pour operation ligne %s", index)
+                            self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                             continue
                         # prelevement
                         if "PRELEVEMENT EUROPEEN" in row.detail or "PRLV EUROPEEN ACC" in row.detail:
                             tiers = f'{row.in_detail(r"DE:(.+?) ID:").strip()}'
                             if tiers == "None":
                                 error = True
-                                self.logger.error("attention , probleme regex pour operation ligne %s", index)
+                                self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                                 continue
                         else:
                             if "VIR RECU" in row.detail and not tiers:
@@ -290,11 +293,10 @@ class ImporterSG(importer.ImporterProtocol):
                     posting_2 = data.Posting(
                         account=cpt2, units=amount.Amount(montant_releve.number * -1, self.currency), cost=None, flag=None, meta=None, price=None,
                     )
-                    flag = flags.FLAG_OKAY
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
-                        flag=flag,
+                        flag=flags.FLAG_OKAY,
                         payee=tiers.strip(),
                         narration=narration,
                         tags=data.EMPTY_SET,
@@ -303,20 +305,24 @@ class ImporterSG(importer.ImporterProtocol):
                     )
                     self.check_before_add(transac)
                     entries.append(transac)
-        if error:
-            raise Exception("au moins une erreur")
-        with open(file.name, "r", encoding="windows-1252") as fichier:
+            if error:
+                raise Exception("au moins une erreur")
+            file.seek(0)
             row = fichier.readline().split(";")
-        meta = data.new_metadata(file.name, index)
-        entry = data.Balance(account=self.account_root,
-                                amount=amount.Amount(utils.to_decimal(row[5][:-5]), self.currency),
-                                meta=meta,
-                                date=utils.strpdate(row[4], "%d/%m/%Y") + datetime.timedelta(days=1), tolerance=None, diff_amount=None)
-        try:
-            data.sanity_check_types(entry)
-            entries.append(entry)
-        except AssertionError as exp:
-            self.logger.error(f"error , problem assertion {pprint.pformat(exp)} in the balance {pprint.pformat(entry)}")
+            meta = data.new_metadata(file.name, index)
+            entry = data.Balance(
+                account=self.account_root,
+                amount=amount.Amount(utils.to_decimal(row[5][:-5]), self.currency),
+                meta=meta,
+                date=utils.strpdate(row[4], "%d/%m/%Y") + datetime.timedelta(days=1),
+                tolerance=None,
+                diff_amount=None,
+            )
+            try:
+                data.sanity_check_types(entry)
+                entries.append(entry)
+            except AssertionError as exp:
+                self.logger.error(f"error , problem assertion {pprint.pformat(exp)} in the balance {pprint.pformat(entry)}")
         return entries
 
 
@@ -348,7 +354,7 @@ class ImporterSG_Visa(importer.ImporterProtocol):
         # Open the CSV file and create directives.
         entries = []
         error = False
-        with open(file.name, "r", encoding="windows-1252") as fichier:
+        with file as fichier:
             for index, row in enumerate(
                 CsvUnicodeReader(fichier, champs=["date", "date_visa", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
             ):

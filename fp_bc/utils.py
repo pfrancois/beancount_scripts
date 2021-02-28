@@ -203,19 +203,19 @@ def is_number(s: t.Any) -> bool:
     return True
 
 
-def datetostr(s, defaut="0/0/0", param="%d/%m/%Y", gsb=False):
+def datetostr(d: t.Union[None, datetime.date], defaut: str = "0/0/0", param: str = "%d/%m/%Y", gsb: bool = False) -> str:
     """
     fonction qui transforme un object date en une chaine AA/MM/JJJJ
-    @param s:objet datetime
+    @param s:objet date
     @param defaut: format a transformer, par defaut c'est AA/MM/JJJJ
     @param gsb: enleve les 0 en debut de jour et mois
     """
-    if s is None:
+    if d is None:
         return defaut
     else:
-        if isinstance(s, datetime.date):
+        if isinstance(d, datetime.date):
             # noinspection PyArgumentList
-            s = s.strftime(param)
+            s = d.strftime(param)
             if gsb:
                 result = []
                 tab = s.split("/")
@@ -232,14 +232,14 @@ def datetostr(s, defaut="0/0/0", param="%d/%m/%Y", gsb=False):
             )
 
 
-def force_text(s):
+def force_text(s: t.Any) -> str:
     return "%s" % s
 
 
-def booltostr(s, defaut="0"):
+def booltostr(s: t.Any, defaut: str = "0") -> str:
     """format un bool en 0 ou 1 avec gestion des null et gestion des 0 sous forme de chaine de caractere
     @param s:objet bool
-    @param defaut: format a transformer, par defaut c'est 0
+    @param defaut: string par defaut pour les none
     """
     if s is None:
         return defaut
@@ -257,17 +257,17 @@ def booltostr(s, defaut="0"):
             return force_text(int(bool(s)))
 
 
-def floattostr(s, nb_digit=7):
+def floattostr(f: t.Optional[float], nb_digit: int = 7) -> str:
     """ convertit un float en string 10,7"""
-    s = "{0:0.{1}f}".format(s, nb_digit)
+    s = "{0:0.{1}f}".format(f, nb_digit)
     return s.replace(".", ",").strip()
 
 
-def typetostr(liste, s, defaut="0"):
+def typetostr(liste: t.List, s: str, defaut: str = "0") -> str:
     """convertit un indice d'une liste par une string
     @param liste: liste a utiliser
     @param s: string comprenand le truc a chercher dans la liste
-    @param defaut: reponse par defaut"""
+    @param defaut: reponse par defaut si None"""
     liste = [force_text(b[0]) for b in liste]
     try:
         s = force_text(liste.index(s) + 1)
