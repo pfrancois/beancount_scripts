@@ -12,6 +12,7 @@ from beancount.core import account
 from beancount.core import data  # pylint:disable=E0611
 from beancount.core import flags
 from beancount.ingest import importer  # noqa
+from beancount.ingest import cache
 from beancount.parser import printer
 
 from fp_bc.utils import CsvUnicodeReader
@@ -74,7 +75,7 @@ class ImporterSG(importer.ImporterProtocol):
         return "{}.{}".format(self.__class__.__name__, self.account_id)
 
     def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
-        return re.match(f"{self.account_id}.csv", path.basename(file.name))
+        return re.match(f"{self.account_id}.*.csv", path.basename(file.name))
 
     def file_account(self, _: t.IO) -> str:
         return self.account_root
@@ -102,11 +103,11 @@ class ImporterSG(importer.ImporterProtocol):
             tiers = tiers.capitalize()
         return tiers
 
-    def extract(self, file: t.IO, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
+    def extract(self, file: cache._FileMemo, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
         # Open the CSV file and create directives.
         entries = []
         error = False
-        with file as fichier:
+        with open(file.name, "r", encoding="windows-1252") as fichier:
             for index, row in enumerate(
                 CsvUnicodeReader(fichier, champs=["date", "libelle", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
             ):
@@ -307,7 +308,7 @@ class ImporterSG(importer.ImporterProtocol):
                     entries.append(transac)
             if error:
                 raise Exception("au moins une erreur")
-            file.seek(0)
+            fichier.seek(0)
             row = fichier.readline().split(";")
             meta = data.new_metadata(file.name, index)
             entry = data.Balance(
@@ -345,16 +346,16 @@ class ImporterSG_Visa(importer.ImporterProtocol):
         self.account_id = account_id
 
     def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
-        return re.match(f"{self.account_id}.csv", path.basename(file.name))
+        return re.match(f"{self.account_id}.*.csv", path.basename(file.name))
 
     def file_account(self, _: t.IO) -> str:
         return self.account_root
 
-    def extract(self, file: t.IO, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
+    def extract(self, file: cache._FileMemo, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
         # Open the CSV file and create directives.
         entries = []
         error = False
-        with file as fichier:
+        with open(file.name, "r", encoding="windows-1252") as fichier:
             for index, row in enumerate(
                 CsvUnicodeReader(fichier, champs=["date", "date_visa", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
             ):
