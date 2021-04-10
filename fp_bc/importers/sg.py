@@ -179,10 +179,6 @@ class ImporterSG(importer.ImporterProtocol):
                 if "DEBIT MENSUEL CARTE" in row.detail or "CREDIT MENSUEL CARTE" in row.detail:
                     if self.account_visa:
                         cpt2 = self.account_visa
-                    else:
-                        error = True
-                        self.logger.error("attention ce compte n'est pas prévu pour avoir un compte carte visa separé")
-                        continue
                 if cpt2:  # VIREMENT interne
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     posting_2 = data.Posting(
