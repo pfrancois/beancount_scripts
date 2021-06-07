@@ -211,7 +211,7 @@ class ImporterSG(importer.ImporterProtocol):
                 # paiment carte visa
                 if row.in_detail(r"^CARTE \w\d\d\d\d(?! RETRAIT)"):  # cas general de la visa
                     flag = flags.FLAG_WARNING
-                    reg_visa = r"(?:CARTE \w\d\d\d\d) (?:REMBT )?(?P<date>\d\d\/\d\d) (?P<desc>.*?)(?:\d+,\d\d|COMMERCE ELECTRONIQUE|$)"
+                    reg_visa = r"(?:CARTE \w\d\d\d\d) (?:REMBT )?(?P<date>\d\d\/\d\d) (?P<desc>.*?)(?:\d+,\d\d|COMMERCE ELECTRONIQUE|$|\s\d+IOPD)"
                     retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                     if retour:
                         tiers = retour.group("desc")
@@ -366,7 +366,7 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                     self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
                     continue
                 date = utils.strpdate(row.row["date"], "%d/%m/%Y")
-                reg_visa = r"\d\d\d\d\/(?P<desc>.*) \d"
+                reg_visa = r"\d\d\d\d\/(?P<desc>.*) (?:\d+,\d\d|COMMERCE ELECTRONIQUE|$|\s\d+IOPD)"
                 retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                 if retour:
                     tiers = retour.group("desc")
