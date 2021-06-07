@@ -156,7 +156,7 @@ class ImporterSG(importer.ImporterProtocol):
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
-                        flag=flags.FLAG_OKAY,
+                        flag=flags.FLAG_WARNING,
                         payee=tiers.strip(),
                         narration=narration,
                         tags=data.EMPTY_SET,
@@ -198,7 +198,7 @@ class ImporterSG(importer.ImporterProtocol):
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
-                        flag=flags.FLAG_OKAY,
+                        flag=flags.FLAG_WARNING,
                         payee=tiers.strip(),
                         narration=narration,
                         tags=data.EMPTY_SET,
@@ -210,7 +210,7 @@ class ImporterSG(importer.ImporterProtocol):
                     continue
                 # paiment carte visa
                 if row.in_detail(r"^CARTE \w\d\d\d\d(?! RETRAIT)"):  # cas general de la visa
-                    flag = flags.FLAG_OKAY
+                    flag = flags.FLAG_WARNING
                     reg_visa = r"(?:CARTE \w\d\d\d\d) (?:REMBT )?(?P<date>\d\d\/\d\d) (?P<desc>.*?)(?:\d+,\d\d|COMMERCE ELECTRONIQUE|$)"
                     retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                     if retour:
@@ -293,7 +293,7 @@ class ImporterSG(importer.ImporterProtocol):
                     transac = data.Transaction(
                         meta=meta,
                         date=date_releve,
-                        flag=flags.FLAG_OKAY,
+                        flag=flags.FLAG_WARNING,
                         payee=tiers.strip(),
                         narration=narration,
                         tags=data.EMPTY_SET,
@@ -358,7 +358,7 @@ class ImporterSG_Visa(importer.ImporterProtocol):
                 tiers = None
                 meta = data.new_metadata(file.name, index)
                 meta["comment"] = row.detail.strip()
-                flag = flags.FLAG_OKAY
+                flag = flags.FLAG_WARNING
                 try:
                     montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
                 except decimal.InvalidOperation:
