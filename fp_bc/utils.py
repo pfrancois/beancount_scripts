@@ -228,7 +228,7 @@ def datetostr(d: t.Union[None, datetime.date], defaut: str = "0/0/0", param: str
                 return s
         else:
             raise FormatException(
-                "attention ce ne peut pas etre qu'un objet date et c'est un %s (%s)" % (type(s), s)
+                "attention ce ne peut pas etre qu'un objet date et c'est un %s (%s)" % (type(d), d)
             )
 
 
