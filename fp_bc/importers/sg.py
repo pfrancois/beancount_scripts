@@ -72,6 +72,7 @@ class ImporterSG(importer.ImporterProtocol):
         self.account_id = account_id
 
     def name(self) -> str:
+        # permet d'avoir deux comptess bourso et de pouvoir les differenciers au niveau de la config
         return "{}.{}".format(self.__class__.__name__, self.account_id)
 
     def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
