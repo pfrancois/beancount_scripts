@@ -296,17 +296,18 @@ bc_directives = t.Union[
 ]
 
 
-def printer_entries(entries: t.Sequence[bc_directives], file: t.IO) -> None:
+def printer_entries(entries: t.Sequence[bc_directives], filename: str) -> None:
     previous_type = type(entries[0]) if entries else None
     eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
-    for entry in entries:
-        entry_type = type(entry)
-        if not isinstance(entry, (data.Close, data.Open)):
-            if isinstance(entry, (data.Transaction, data.Commodity)) or entry_type is not previous_type:
-                file.write("\n")
-        previous_type = entry_type
-        string = "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
-        file.write(string)
+    with open(filename, mode="w", encoding="utf-8") as file:
+        for entry in entries:
+            entry_type = type(entry)
+            if not isinstance(entry, (data.Close, data.Open)):
+                if isinstance(entry, (data.Transaction, data.Commodity)) or entry_type is not previous_type:
+                    file.write("\n")
+            previous_type = entry_type
+            string = "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
+            file.write(string)
 
 
 def check_before_add(entry: data.Transaction) -> None:
