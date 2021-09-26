@@ -91,7 +91,7 @@ class ImporterPB(importer.ImporterProtocol):
                     raise AssertionError("problem")
         except AssertionError as exp:
             self.logger.error(
-                "error , problem assertion %s in the tranaction %s",
+                "error , problem assertion %s in the transaction %s",
                 pprint.pformat(exp),
                 pprint.pformat(entry),
             )
