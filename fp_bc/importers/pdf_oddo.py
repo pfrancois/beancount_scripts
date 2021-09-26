@@ -65,7 +65,7 @@ class ImporterODDO_PDF(importer.ImporterProtocol):
                 if entry.meta.get("isin", ""):
                     liste_com[entry.meta["isin"]] = entry.currency
         self.logger.info('all comodity loaded')
-        df = camelot.read_pdf("doc.pdf", flavor="stream", pages="1,2", strip_text="\n", row_tol=10)[2].df
+        df = camelot.read_pdf(file, flavor="stream", pages="1,2", strip_text="\n", row_tol=10)[2].df
         montant_global = utils.to_decimal(df.at[1, 6])
         date_min = utils.strpdate("01/01/2030", fmt="%d/%m/%Y")
         achattot = 0
