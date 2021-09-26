@@ -1,0 +1,6 @@
+bs4
+beancount
+requests
+dateparser
+smart_importer
+
