@@ -12,6 +12,11 @@ import math
 from uuid import uuid4
 from beancount.core import data  # pylint:disable=E0611
 from beancount.parser import printer
+from io import StringIO
+
+# import sys
+from beancount import loader
+from collections.abc import Iterable
 
 
 class ExcelCsv(csv.Dialect):  # pylint: disable=R0903
@@ -42,12 +47,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         return pprint.pformat(self.row)
 
     def __init__(
-        self,
-        fich: t.IO,
-        dialect: t.Any = ExcelCsv,
-        champs: t.List[str] = None,
-        champ_detail: str = "detail",
-        ligne_saut: int = 0,
+        self, fich: t.IO, dialect: t.Any = ExcelCsv, champs: t.List[str] = None, champ_detail: str = "detail", ligne_saut: int = 0,
     ) -> None:  # pylint: disable=W0231, E1136
         if champs:
             self.champs = champs
@@ -104,6 +104,10 @@ class CsvUnicodeReader:  # pylint: disable=E1136
 def uuid() -> str:  # pragma: no cover
     """raccourci vers uuid4"""
     return str(uuid4())
+
+
+def is_iterable(obj: t.Any) -> bool:
+    return isinstance(obj, Iterable)
 
 
 class UtilsException(Exception):
@@ -163,9 +167,7 @@ def is_date(var: t.Any, fmt: str = "%Y-%m-%d") -> bool:
     return ok
 
 
-def to_decimal(
-    s: t.Any, thousand_point: bool = False, virgule: bool = True, space: bool = True
-) -> decimal.Decimal:
+def to_decimal(s: t.Any, thousand_point: bool = False, virgule: bool = True, space: bool = True) -> decimal.Decimal:
     """fonction qui renvoie un decimal en partant d'un nombre francais
         @param s: string representqnt le decimal
         @param thousand_point: si TRUE utilise le point comme separateur de milliers sinon pas de separateur
@@ -227,9 +229,7 @@ def datetostr(d: t.Union[None, datetime.date], defaut: str = "0/0/0", param: str
             else:
                 return s
         else:
-            raise FormatException(
-                "attention ce ne peut pas etre qu'un objet date et c'est un %s (%s)" % (type(d), d)
-            )
+            raise FormatException("attention ce ne peut pas etre qu'un objet date et c'est un %s (%s)" % (type(d), d))
 
 
 def force_text(s: t.Any) -> str:
@@ -306,8 +306,14 @@ def printer_entries(entries: t.Sequence[bc_directives], filename: str) -> None:
                 if isinstance(entry, (data.Transaction, data.Commodity)) or entry_type is not previous_type:
                     file.write("\n")
             previous_type = entry_type
-            string = "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
+            string = print_entry(entry, eprinter)
             file.write(string)
+
+
+def print_entry(entry: bc_directives, eprinter: printer.EntryPrinter = None) -> str:
+    if not eprinter:
+        eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
+    return "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
 
 
 def check_before_add(entry: data.Transaction) -> None:
@@ -323,3 +329,19 @@ def check_before_add(entry: data.Transaction) -> None:
         log.error(
             "error , problem assertion %s in the transaction %s", pprint.pformat(exp), pprint.pformat(entry),
         )
+
+
+def load_bc_file(filename: str, debug=False) -> t.List[bc_directives]:
+    if debug:
+        logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+        log = logging.getLogger("load_bc")
+    # creation de la structure qui va recevoir
+    error_io = StringIO()
+    entries, errors, options_map = loader.load_file(filename, log_errors=error_io)
+    if debug:
+        log.info(f"loading '{filename}'")
+        for err in errors:
+            log.warning("{} {}".format(printer.render_source(err.source), err.message))
+    if errors:
+        raise UtilsException("des erreurs existent dans le fichier beancount")
+    return entries
