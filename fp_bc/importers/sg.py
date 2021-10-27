@@ -226,7 +226,11 @@ class ImporterSG(importer.ImporterProtocol):
                             continue
                     else:
                         if "VIR RECU" in row.detail and not tiers:
-                            tiers = self.tiers_update_verifie(row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) "))
+                            if row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) "):
+                                tiers = self.tiers_update_verifie(row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) "))
+                            else:
+                                tiers = self.tiers_update_verifie(row.in_detail(r" DE: (.+)"))
+                                print(tiers)
                     if row.in_detail("ECHEANCE PRET"):
                         tiers = "Sg"
                     if not tiers:

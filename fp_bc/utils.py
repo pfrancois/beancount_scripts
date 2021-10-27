@@ -331,10 +331,8 @@ def check_before_add(entry: data.Transaction) -> None:
         )
 
 
-def load_bc_file(filename: str, debug=False) -> t.List[bc_directives]:
-    if debug:
-        logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-        log = logging.getLogger("load_bc")
+def load_bc_file(filename: str, debug=False) -> t.Tuple[t.List[bc_directives], t.Dict]:
+    log = logging.getLogger("load_bc")
     # creation de la structure qui va recevoir
     error_io = StringIO()
     entries, errors, options_map = loader.load_file(filename, log_errors=error_io)
@@ -344,4 +342,4 @@ def load_bc_file(filename: str, debug=False) -> t.List[bc_directives]:
             log.warning("{} {}".format(printer.render_source(err.source), err.message))
     if errors:
         raise UtilsException("des erreurs existent dans le fichier beancount")
-    return entries
+    return (entries, options_map)
