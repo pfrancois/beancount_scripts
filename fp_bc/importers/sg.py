@@ -85,11 +85,15 @@ class ImporterSG(importer.ImporterProtocol):
 
     def extract(self, file: cache._FileMemo, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
         # Open the CSV file and create directives.
-        entries = []
+        entries: t.List[bc_directives] = []
         error = False
         with open(file.name, "r", encoding="windows-1252") as fichier:
             for index, row in enumerate(
-                CsvUnicodeReader(fichier, champs=["date", "libelle", "detail", "montant", "devise"], ligne_saut=2, champ_detail="detail",), 4,
+                CsvUnicodeReader(fichier,
+                                 champs=["date", "libelle", "detail", "montant", "devise"],
+                                 ligne_saut=2,
+                                 champ_detail="detail"),
+                start=4
             ):
                 tiers = None
                 narration = ""
@@ -98,7 +102,8 @@ class ImporterSG(importer.ImporterProtocol):
                 meta["comment"] = row.detail.strip()
                 flag = flags.FLAG_WARNING
                 try:
-                    montant_releve = amount.Amount(utils.to_decimal(row.row["montant"]), self.currency)
+                    montant = utils.to_decimal(row.row["montant"])
+                    montant_releve = amount.Amount(montant, self.currency)
                 except decimal.InvalidOperation:
                     error = True
                     self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
@@ -111,31 +116,45 @@ class ImporterSG(importer.ImporterProtocol):
                         self.logger.error(f"attention , probleme regex_retrait pour operation ligne {index}")
                         error = True
                         continue
-                    cpt2 = self.account_cash
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
-                    posting_2 = data.Posting(
-                        account=cpt2,
-                        units=amount.Amount(montant_releve.number * decimal.Decimal("-1"), self.currency),
-                        cost=None,
-                        flag=None,
-                        meta=None,
-                        price=None,
-                    )
                     if self.account_cash:
-                        if montant_releve.number < 0:
-                            narration = "%s => %s" % (short(self.account_root), short(cpt2))
+                        if montant < 0:
+                            narration = "%s => %s" % (short(self.account_root), short(self.account_cash))
                         else:
-                            narration = "%s => %s" % (short(cpt2), short(self.account_root))
-                    transac = data.Transaction(
-                        meta=meta,
-                        date=date_releve,
-                        flag=flag,
-                        payee="Retrait",
-                        narration=narration,
-                        tags=data.EMPTY_SET,
-                        links=data.EMPTY_SET,
-                        postings=[posting_1, posting_2],
-                    )
+                            narration = "%s => %s" % (short(self.account_cash), short(self.account_root))
+                        posting_2 = data.Posting(
+                            account=self.account_cash,
+                            units=amount.Amount(montant * decimal.Decimal("-1"), self.currency),
+                            cost=None,
+                            flag=None,
+                            meta=None,
+                            price=None,
+                        )
+                        transac = data.Transaction(
+                            meta=meta,
+                            date=date_releve,
+                            flag=flag,
+                            payee="Retrait",
+                            narration=narration,
+                            tags=data.EMPTY_SET,
+                            links=data.EMPTY_SET,
+                            postings=[posting_1, posting_2],
+                        )
+                    else:
+                        if montant < 0:
+                            narration = "retrait %s" % short(self.account_root)
+                        else:
+                            narration = "dépôt %s" % short(self.account_root)
+                        transac = data.Transaction(
+                            meta=meta,
+                            date=date_releve,
+                            flag=flag,
+                            payee="Retrait",
+                            narration=narration,
+                            tags=data.EMPTY_SET,
+                            links=data.EMPTY_SET,
+                            postings=[posting_1, ],
+                        )
                     self.check_before_add(transac)
                     entries.append(transac)
                     continue
@@ -152,14 +171,14 @@ class ImporterSG(importer.ImporterProtocol):
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     posting_2 = data.Posting(
                         account=cpt2,
-                        units=amount.Amount(montant_releve.number * decimal.Decimal("-1"), self.currency),
+                        units=amount.Amount(montant * decimal.Decimal("-1"), self.currency),
                         cost=None,
                         flag=None,
                         meta=None,
                         price=None,
                     )
                     tiers = "Virement"
-                    if montant_releve.number < 0:
+                    if montant < 0:
                         narration = "%s => %s" % (short(self.account_root), short(cpt2))
                     else:
                         narration = "%s => %s" % (short(cpt2), short(self.account_root))
@@ -211,26 +230,37 @@ class ImporterSG(importer.ImporterProtocol):
                 else:
                     #  c'est un virement non transfert
                     regex_virement = r"VIR EUROPEEN EMIS \s* LOGITEL POUR: (.*?)(?: \d\d \d\d BQ \d+ CPT \S+)*? REF:"
-                    if re.search(regex_virement, row.detail, re.UNICODE | re.IGNORECASE):
-                        tiers = self.tiers_update_verifie(re.search(regex_virement, row.detail, re.UNICODE | re.IGNORECASE).group(1))
+                    recherche = re.search(regex_virement, row.detail, re.UNICODE | re.IGNORECASE)
+                    if recherche:
+                        tiers_1 = recherche.group(1)
+                        tiers = self.tiers_update_verifie(tiers_1)
                     if "VIR EUROPEEN EMIS" in row.detail and not tiers:
                         error = True
                         self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                         continue
                     # prelevement
                     if "PRELEVEMENT EUROPEEN" in row.detail or "PRLV EUROPEEN ACC" in row.detail:
-                        tiers = self.tiers_update_verifie(f'{row.in_detail(r"DE:(.+?) ID:").strip()}')
-                        if tiers == "None":
+                        tiers_1 = row.in_detail(r"DE:(.+?) ID:")
+                        if isinstance(tiers_1, str) and tiers_1 is not None:
+                            tiers_1 = tiers_1.strip()
+                            tiers = self.tiers_update_verifie(tiers_1)
+                        else:
                             error = True
                             self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                             continue
                     else:
                         if "VIR RECU" in row.detail and not tiers:
-                            if row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) "):
-                                tiers = self.tiers_update_verifie(row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) "))
+                            tiers_1 = row.in_detail(r" DE: (.+?) (?:(?:MOTIF|REF):) ")
+                            if isinstance(tiers_1, str) and tiers_1 is not None:
+                                tiers = self.tiers_update_verifie(tiers_1)
                             else:
-                                tiers = self.tiers_update_verifie(row.in_detail(r" DE: (.+)"))
-                                print(tiers)
+                                tiers_1 = row.in_detail(r" DE: (.+)")
+                                if isinstance(tiers_1, str) and tiers_1 is not None:
+                                    tiers = self.tiers_update_verifie(tiers_1)
+                                else:
+                                    error = True
+                                    self.logger.error(f"attention , probleme regex pour operation ligne {index}")
+                                    continue
                     if row.in_detail("ECHEANCE PRET"):
                         tiers = "Sg"
                     if not tiers:

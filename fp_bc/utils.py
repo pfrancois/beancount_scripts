@@ -331,7 +331,7 @@ def check_before_add(entry: data.Transaction) -> None:
         )
 
 
-def load_bc_file(filename: str, debug=False) -> t.Tuple[t.List[bc_directives], t.Dict]:
+def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_directives], t.List[t.NamedTuple]]:
     log = logging.getLogger("load_bc")
     # creation de la structure qui va recevoir
     error_io = StringIO()
