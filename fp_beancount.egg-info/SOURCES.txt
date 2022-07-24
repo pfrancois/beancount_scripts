@@ -2,7 +2,9 @@ setup.py
 fp_bc/__init__.py
 fp_bc/utils.py
 fp_bc/importers/__init__.py
-fp_bc/importers/pb.py
+fp_bc/importers/boursorama.py
+fp_bc/importers/pdf_oddo.py
+fp_bc/importers/postbank.py
 fp_bc/importers/sg.py
 fp_bc/plugins/__init__.py
 fp_bc/plugins/price_plugin.py

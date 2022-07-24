@@ -1,4 +1,4 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.1
 Name: fp-beancount
 Version: 2.0.0
 Summary: prices sources , plugins and importer for beancount
@@ -6,12 +6,14 @@ Home-page: https://github.com/pfrancois/beancount_scripts
 Author: Francois pegory
 Author-email: pfrancois_99@yahoo.fr
 License: Creative Commons Attribution-Noncommercial-Share Alike license
-Description: UNKNOWN
 Keywords: beancount,convert,converter,csv,accounting
-Platform: UNKNOWN
+Platform: ALL
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Office/Business :: Financial :: Accounting
 Classifier: Natural Language :: French
 Classifier: Development Status :: 5 - Production/Stable
+
+UNKNOWN
+
