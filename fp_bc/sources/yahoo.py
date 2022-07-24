@@ -6,25 +6,20 @@ import requests
 from beancount.core.number import D
 import logging
 
-import sys
-debug = False
-
 
 class YahooError(ValueError):
     "An error from the Yahoo API."
 
 
 class Source(bean_source.Source):
-    def get_latest_price(self, ticker):
+    def get_latest_price(self, ticker: str) -> bean_source.SourcePrice:
         log = logging.getLogger()
         log.info(f"yahoo:{ticker}")
         response = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}", headers={'User-Agent': None})
         try:
             content = next(iter(response.json(parse_float=D).values()))
         except Exception as exc:
-            from pprint import pprint
-            if debug:
-                pprint(exc)
+            log.debug(exc)
             raise YahooError(f"Invalid response from Yahoo:  {response}")
         if response.status_code != requests.codes.ok:
             raise YahooError(f"Status {response.status_code}: {content['error']}")
@@ -41,4 +36,5 @@ class Source(bean_source.Source):
         except KeyError:
             raise YahooError(f"Invalid response from Yahoo: {repr(result)}")
         currency = result["meta"]["currency"]
+        log.debug(f"price: {price} \t day:{trade_time} \t cur:{currency}")
         return bean_source.SourcePrice(price, trade_time, currency)
