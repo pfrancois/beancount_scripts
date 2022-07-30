@@ -3,4 +3,5 @@ beancount
 requests
 dateparser
 smart_importer
+python-dotenv
 
