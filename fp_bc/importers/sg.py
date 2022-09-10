@@ -83,7 +83,7 @@ class ImporterSG(importer.ImporterProtocol):
         tiers = tiers.capitalize()
         return tiers
 
-    def extract(self, file: cache._FileMemo, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
+    def extract(self, file: cache._FileMemo, existing_entries: t.Optional[t.List[bc_directives]] = None) -> t.List[bc_directives]:
         # Open the CSV file and create directives.
         entries: t.List[bc_directives] = []
         error = False
