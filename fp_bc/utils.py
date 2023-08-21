@@ -10,12 +10,6 @@ import datetime
 import time
 import math
 from uuid import uuid4
-from beancount.core import data  # pylint:disable=E0611
-from beancount.parser import printer
-from io import StringIO
-
-# import sys
-from beancount import loader
 from collections.abc import Iterable
 
 
@@ -47,7 +41,12 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         return pprint.pformat(self.row)
 
     def __init__(
-        self, fich: t.IO, dialect: t.Any = ExcelCsv, champs: t.List[str] = None, champ_detail: str = "detail", ligne_saut: int = 0,
+        self,
+        fich: t.IO,
+        dialect: t.Any = ExcelCsv,
+        champs: t.Optional[t.List[str]] = None,
+        champ_detail: str = "detail",
+        ligne_saut: int = 0,
     ) -> None:  # pylint: disable=W0231, E1136
         if champs:
             self.champs = champs
@@ -59,7 +58,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         self.line = 0
 
     def __next__(self) -> "CsvUnicodeReader":
-        """fonction utiise pour rendre la classe iterable """
+        """fonction utiise pour rendre la classe iterable"""
         while self.line < self.ligne_saut:
             self.line += 1
             self.row = next(self.reader)
@@ -71,7 +70,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         return self
 
     def __iter__(self) -> "CsvUnicodeReader":
-        """fonction utiise pour rendre la classe iterable """
+        """fonction utiise pour rendre la classe iterable"""
         return self
 
     @property
@@ -80,7 +79,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         return self.row[self.champ_detail].strip()
 
     def in_detail(self, regxp: str, champ: str = "") -> t.Union[t.List[str], str, None]:
-        """ fonction qui cherche danc champs la regexp re .
+        """fonction qui cherche danc champs la regexp re .
         si ne seule reponse la renvoie sinon renvoie une liste
         @param champ: lieu de la recherche
         @param regxp: regexp a chercher
@@ -134,14 +133,14 @@ class FormatException(UtilsException):
 
 
 def strpdate(var: t.Any, fmt: str = "%Y-%m-%d") -> datetime.date:
-    """ renvoie la date
-        @param var: variable d'entree
-        @type var: date or datetime or string
-        @param fmt: format de la date, par defaut "%Y-%m-%d"
-        @type fmt: str
-        @return datetime.date
-        @raise FormatException: si s n'est pas une date
-        """
+    """renvoie la date
+    @param var: variable d'entree
+    @type var: date or datetime or string
+    @param fmt: format de la date, par defaut "%Y-%m-%d"
+    @type fmt: str
+    @return datetime.date
+    @raise FormatException: si s n'est pas une date
+    """
     try:
         if isinstance(var, datetime.datetime):
             return datetime.date(var.year, var.month, var.day)
@@ -156,10 +155,10 @@ def strpdate(var: t.Any, fmt: str = "%Y-%m-%d") -> datetime.date:
 
 
 def is_date(var: t.Any, fmt: str = "%Y-%m-%d") -> bool:
-    """ fonction qui renvoie True si c'est une date
-        @param var: whatever
-        @param fmt: format de la date, par defaut "%Y-%m-%d"
-        @return bool """
+    """fonction qui renvoie True si c'est une date
+    @param var: whatever
+    @param fmt: format de la date, par defaut "%Y-%m-%d"
+    @return bool"""
     try:
         ok = bool(strpdate(var, fmt))  # pylint: disable= W0612
     except FormatException:
@@ -169,11 +168,11 @@ def is_date(var: t.Any, fmt: str = "%Y-%m-%d") -> bool:
 
 def to_decimal(s: t.Any, thousand_point: bool = False, virgule: bool = True, space: bool = True) -> decimal.Decimal:
     """fonction qui renvoie un decimal en partant d'un nombre francais
-        @param s: string representqnt le decimal
-        @param thousand_point: si TRUE utilise le point comme separateur de milliers sinon pas de separateur
-        @param virgule: si true, utilise la virgule comme separateur decimal sinon utilisation du point
-        @param space: si true utilise l'espace comme separateur de millier sinon pas de separateur
-        @return decimal"""
+    @param s: string representqnt le decimal
+    @param thousand_point: si TRUE utilise le point comme separateur de milliers sinon pas de separateur
+    @param virgule: si true, utilise la virgule comme separateur decimal sinon utilisation du point
+    @param space: si true utilise l'espace comme separateur de millier sinon pas de separateur
+    @return decimal"""
     if not s:
         return decimal.Decimal("0")
     if thousand_point is True and virgule is False:
@@ -258,7 +257,7 @@ def booltostr(s: t.Any, defaut: str = "0") -> str:
 
 
 def floattostr(f: t.Optional[float], nb_digit: int = 7) -> str:
-    """ convertit un float en string 10,7"""
+    """convertit un float en string 10,7"""
     s = "{0:0.{1}f}".format(f, nb_digit)
     return s.replace(".", ",").strip()
 
@@ -274,72 +273,3 @@ def typetostr(liste: t.List, s: str, defaut: str = "0") -> str:
     except ValueError:  # on a un cas à defaut
         s = defaut
     return s
-
-
-# trucs commun pour beancount
-
-
-NoneType = type(None)
-bc_directives = t.Union[
-    data.Open,
-    data.Close,
-    data.Commodity,
-    data.Balance,
-    data.Pad,
-    data.Transaction,
-    data.Note,
-    data.Event,
-    data.Query,
-    data.Price,
-    data.Document,
-    data.Custom,
-]
-
-
-def printer_entries(entries: t.Sequence[bc_directives], filename: str) -> None:
-    previous_type = type(entries[0]) if entries else None
-    eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
-    with open(filename, mode="w", encoding="utf-8") as file:
-        for entry in entries:
-            entry_type = type(entry)
-            if not isinstance(entry, (data.Close, data.Open)):
-                if isinstance(entry, (data.Transaction, data.Commodity)) or entry_type is not previous_type:
-                    file.write("\n")
-            previous_type = entry_type
-            string = print_entry(entry, eprinter)
-            file.write(string)
-
-
-def print_entry(entry: bc_directives, eprinter: printer.EntryPrinter = None) -> str:
-    if not eprinter:
-        eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
-    return "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
-
-
-def check_before_add(entry: data.Transaction) -> None:
-    log = logging.getLogger("Main")
-    try:
-        data.sanity_check_types(entry)
-        for posting in entry.postings:
-            if posting.account is None:
-                raise AssertionError("problem")
-        if len(entry.postings) == 0:
-            raise AssertionError("problem")
-    except AssertionError as exp:
-        log.error(
-            "error , problem assertion %s in the transaction %s", pprint.pformat(exp), pprint.pformat(entry),
-        )
-
-
-def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_directives], t.List[t.NamedTuple]]:
-    log = logging.getLogger("load_bc")
-    # creation de la structure qui va recevoir
-    error_io = StringIO()
-    entries, errors, options_map = loader.load_file(filename, log_errors=error_io)
-    if debug:
-        log.info(f"loading '{filename}'")
-        for err in errors:
-            log.warning("{} {}".format(printer.render_source(err.source), err.message))
-    if errors:
-        raise UtilsException("des erreurs existent dans le fichier beancount")
-    return (entries, options_map)
