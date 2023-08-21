@@ -2,9 +2,14 @@ from io import StringIO
 import typing as t
 import logging
 import pprint
+import datetime
+
 from beancount import loader
 from beancount.core import data  # pylint:disable=E0611
 from beancount.parser import printer
+from beancount.core import getters
+import beancount.core.account as core_account
+
 
 from . import utils
 
@@ -75,3 +80,35 @@ def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_direct
     if errors:
         raise utils.UtilsException("des erreurs existent dans le fichier beancount")
     return (entries, options_map)
+
+
+def short(account_name: str) -> str:
+    """ renvoie le nom court du compte
+    """
+    if core_account.leaf(account_name) == "Caisse":
+        return "Caisse"
+    if core_account.leaf(account_name) == "Cash":
+        return ":".join(account_name.split(":")[-2:])
+    if account_name.split(":")[0] in ("Expenses", "Income", "Equity"):
+        return ":".join(account_name.split(":")[1:])
+    return core_account.leaf(account_name)
+
+
+def entry_sort_key(entry: bc_directives) -> t.Tuple[datetime.date, int, str]:
+    if isinstance(entry, data.Transaction):
+        return (entry.date, 0, f"{entry.payee}:{entry.narration}")
+    if isinstance(entry, data.Price):
+        return (entry.date, 0, entry.currency)
+    if isinstance(entry, data.Open):
+        return (utils.strpdate("2000-01-01"), -1, entry.account)
+    if isinstance(entry, data.Close):
+        return (utils.strpdate("2000-01-01"), -1, entry.account)
+    if isinstance(entry, data.Balance):
+        return (entry.date, -2, entry.account)
+    if isinstance(entry, data.Commodity):
+        return (utils.strpdate("2000-01-01"), 0, entry.currency)
+    return (entry.date, 0, str(entry.meta["lineno"]))
+
+
+def sort(liste: t.Sequence[bc_directives]) -> t.List[bc_directives]:
+    return sorted(liste, key=entry_sort_key)
