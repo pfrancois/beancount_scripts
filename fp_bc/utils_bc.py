@@ -3,13 +3,16 @@ import typing as t
 import logging
 import pprint
 import datetime
+import re
 
 from beancount import loader
 from beancount.core import data  # pylint:disable=E0611
 from beancount.parser import printer
 from beancount.core import getters
 import beancount.core.account as core_account
+from beancount.core import number
 
+from decimal import Decimal
 
 from . import utils
 
@@ -34,7 +37,8 @@ bc_directives = t.Union[
 
 
 def printer_entries(entries: t.Sequence[bc_directives], filename: str) -> None:
-    previous_type = type(entries[0]) if entries else None
+    entries = sort(entries)
+    previous_type = type(entries[0])
     eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
     with open(filename, mode="w", encoding="utf-8") as file:
         for entry in entries:
@@ -50,11 +54,18 @@ def printer_entries(entries: t.Sequence[bc_directives], filename: str) -> None:
 def print_entry(entry: bc_directives, eprinter: t.Optional[printer.EntryPrinter] = None) -> str:
     if not eprinter:
         eprinter = printer.EntryPrinter(dcontext=None, render_weight=False)
-    return "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
+    sortie_txt = "\n".join([ligne.rstrip() for ligne in eprinter(entry).split("\n")])
+    final = re.sub(r'\s*None EUR', '', sortie_txt)
+    return final
 
 
-def check_before_add(entry: data.Transaction) -> None:
+def check_before_add(entry: data.Transaction, raise_exception: t.Optional[bool] = None) -> None:
     log = logging.getLogger("Main")
+    if raise_exception is None:
+        if log.getEffectiveLevel() == logging.DEBUG:
+            raise_exception = True
+        else:
+            raise_exception = False
     try:
         data.sanity_check_types(entry)
         for posting in entry.postings:
@@ -63,9 +74,14 @@ def check_before_add(entry: data.Transaction) -> None:
         if len(entry.postings) == 0:
             raise AssertionError("problem")
     except AssertionError as exp:
-        log.error(
-            "error , problem assertion %s in the transaction %s", pprint.pformat(exp), pprint.pformat(entry),
-        )
+        if raise_exception:
+            raise utils.UtilsException(f"error , problem assertion {pprint.pformat(exp)} in the transaction {pprint.pformat(entry)}")
+        else:
+            log.error(
+                "error , problem assertion %s in the transaction %s",
+                pprint.pformat(exp),
+                pprint.pformat(entry),
+            )
 
 
 def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_directives], t.List[t.NamedTuple]]:
@@ -83,8 +99,7 @@ def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_direct
 
 
 def short(account_name: str) -> str:
-    """ renvoie le nom court du compte
-    """
+    """renvoie le nom court du compte"""
     if core_account.leaf(account_name) == "Caisse":
         return "Caisse"
     if core_account.leaf(account_name) == "Cash":
