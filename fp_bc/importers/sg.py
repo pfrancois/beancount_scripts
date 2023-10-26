@@ -48,7 +48,7 @@ bc_directives = t.Union[
 
 
 class ImporterSG(importer.ImporterProtocol):
-    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Union[str, NoneType], tiers_update: t.List = None) -> None:
+    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Union[str, NoneType], tiers_update: t.Optional[t.List[str]] = None) -> None:
         self.logger = logging.getLogger(__file__)  # pylint: disable=W0612
         self.currency = currency
         self.account_root = account_root
@@ -60,10 +60,10 @@ class ImporterSG(importer.ImporterProtocol):
         # permet d'avoir deux comptes et de pouvoir les differenciers au niveau de la config
         return "{}.{}".format(self.__class__.__name__, self.account_id)
 
-    def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
-        return re.match(f"{self.account_id}.*.csv", path.basename(file.name))
+    def identify(self, file: cache._FileMemo) -> bool:
+        return bool(re.match(f"{self.account_id}.*.csv", path.basename(file.name)))
 
-    def file_account(self, _: t.IO) -> str:
+    def file_account(self, _: cache._FileMemo) -> str:
         return self.account_root
 
     def check_before_add(self, entry: data.Transaction) -> None:

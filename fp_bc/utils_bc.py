@@ -84,17 +84,18 @@ def check_before_add(entry: data.Transaction, raise_exception: t.Optional[bool] 
             )
 
 
-def load_bc_file(filename: str, debug: bool = False) -> t.Tuple[t.List[bc_directives], t.List[t.NamedTuple]]:
+def load_bc_file(filename: str, debug: bool = False, skip_error: bool = False) -> t.Tuple[t.List[bc_directives], t.List[t.NamedTuple]]:
     log = logging.getLogger("load_bc")
     # creation de la structure qui va recevoir
     error_io = StringIO()
     entries, errors, options_map = loader.load_file(filename, log_errors=error_io)
-    if debug:
-        log.info(f"loading '{filename}'")
-        for err in errors:
-            log.warning("{} {}".format(printer.render_source(err.source), err.message))
-    if errors:
-        raise utils.UtilsException("des erreurs existent dans le fichier beancount")
+    if skip_error:
+        if debug:
+            log.info(f"loading '{filename}'")
+            for err in errors:
+                log.warning("{} {}".format(printer.render_source(err.source), err.message))
+        if errors:
+            raise utils.UtilsException("des erreurs existent dans le fichier beancount")
     return (entries, options_map)
 
 

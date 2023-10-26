@@ -16,14 +16,35 @@ from beancount.ingest import importer
 from fp_bc.utils import CsvUnicodeReader
 from fp_bc import utils
 
-# import typing as t
+import typing as t
 
 NoneType = type(None)
+bc_directives = t.Union[
+    data.Open,
+    data.Close,
+    data.Commodity,
+    data.Balance,
+    data.Pad,
+    data.Transaction,
+    data.Note,
+    data.Event,
+    data.Query,
+    data.Price,
+    data.Document,
+    data.Custom,
+]
 
 
 class ImporterPB(importer.ImporterProtocol):
     def __init__(
-        self, tiers_update, tiers_cat, currency, account_root, account_cash, cat_default, cat_frais
+        self,
+        account_root: str,
+        account_cash: str,
+        tiers_update: t.Optional[t.List[str]] = None,
+        tiers_cat: t.Optional[t.List[str]] = None,
+        currency: str = "EUR",
+        cat_default: str = "inconnu",
+        cat_frais: str = "Expenses:Frais-bancaires",
     ):
         self.tiers_update = tiers_update
         self.tiers_cat = tiers_cat
@@ -36,17 +57,13 @@ class ImporterPB(importer.ImporterProtocol):
 
         regex = (
             re.compile(
-                r"Referenz (?:VZ)?\d+(?: \d+)? Mandat (?:\d+|OFFLINE) Einreicher-ID \S\S\w+ (?P<desc>(?P<tiers>.+?)//?.+/.+(?: Terminal \d+)? (?P<date>\d\d\d\d-\d\d-\d\d)T\d\d:\d\d:\d\d (?:Folgenr.|Verfalld.) \d+(?: Entgelt (?P<frais>\d+,\d+) EUR)?)"
+                r"Referenz (?:VZ)?\d+(?: \d+)? Mandat (?:\d+|OFFLINE) Einreicher-ID \S\S\w+ (?P<desc>(?P<tiers>.+?)//?.+/.+(?: Terminal \d+)? (?P<date>\d\d\d\d-\d\d-\d\d)T\d\d:\d\d:\d\d (?:Folgenr.|Verfalld.) \d+(?: Entgelt (?P<frais>\d+,\d+) EUR)?)"  # noqa
             ),
-            re.compile(
-                r"(PGA|KBS) \d+ KRT\d+/\d\d.\d\d (?P<desc>(?P<date>\d\d.\d\d) \d\d.\d\d TA-NR. \d+ \d+ .*)"
-            ),
+            re.compile(r"(PGA|KBS) \d+ KRT\d+/\d\d.\d\d (?P<desc>(?P<date>\d\d.\d\d) \d\d.\d\d TA-NR. \d+ \d+ .*)"),
             re.compile(r"ABRECHNUNG VOM (?P<date>\d\d.\d\d.\d\d)"),
-            re.compile(
-                r"Referenz .* Mandat .+ Einreicher-ID \w+ (?P<desc>.*?) \S\S\S\d+ (?P<date>\d\d.\d\d)"
-            ),
+            re.compile(r"Referenz .* Mandat .+ Einreicher-ID \w+ (?P<desc>.*?) \S\S\S\d+ (?P<date>\d\d.\d\d)"),
         )
-        self.corr = {
+        self.corr: t.Dict[str, t.Any] = {
             "retrait": (("Auszahlung"), regex[1]),
             "retrait_avec_frais": (
                 ("Bargeldausz. GA Ausland", "Auszahlung Geldautomat", "Bargeldausz. Geldautomat"),
@@ -63,27 +80,27 @@ class ImporterPB(importer.ImporterProtocol):
             "Virement": (("Überweisung", "Übertrag", "Überweisung neutral"), None),
         }
 
-    def identify(self, file):
-        return re.match(
-            r"PB_Umsatzauskunft_KtoNr\d+_\d\d-\d\d-\d\d\d\d_\d\d\d\d.csv", path.basename(file.name)
-        )
+    def identify(self, file: t.IO) -> bool:
+        return bool(re.match(r"PB_Umsatzauskunft_KtoNr\d+_\d\d-\d\d-\d\d\d\d_\d\d\d\d.csv", path.basename(file.name)))
 
-    def file_account(self, _):
+    def file_account(self, _: t.IO) -> str:
         return self.account_root
 
-    def cat(self, tiers):
-        for regle_cat in self.tiers_cat:
-            if re.findall(regle_cat[0], tiers, re.UNICODE | re.IGNORECASE):
-                return regle_cat[1]
+    def cat(self, tiers: str) -> str:
+        if self.tiers_cat is not None:
+            for regle_cat in self.tiers_cat:
+                if re.findall(regle_cat[0], tiers, re.UNICODE | re.IGNORECASE):
+                    return regle_cat[1]
         return self.cat_default
 
-    def tiers_update_verifie(self, tiers):
-        for regle_tiers in self.tiers_update:
-            if re.search(regle_tiers[0], tiers, re.UNICODE | re.IGNORECASE):
-                tiers = regle_tiers[1]
+    def tiers_update_verifie(self, tiers: str) -> str:
+        if self.tiers_update is not None:
+            for regle_tiers in self.tiers_update:
+                if re.search(regle_tiers[0], tiers, re.UNICODE | re.IGNORECASE):
+                    tiers = regle_tiers[1]
         return tiers
 
-    def check_before_add(self, entry):
+    def check_before_add(self, entry: data.Transaction) -> None:
         try:
             data.sanity_check_types(entry)
             for posting in entry.postings:
@@ -96,7 +113,7 @@ class ImporterPB(importer.ImporterProtocol):
                 pprint.pformat(entry),
             )
 
-    def extract(self, file, existing_entries=None):
+    def extract(self, file: t.IO, existing_entries: t.Optional[t.List[bc_directives]] = None) -> t.List[bc_directives]:
         # Open the CSV file and create directives.
         entries = []
         error = False
@@ -153,18 +170,14 @@ class ImporterPB(importer.ImporterProtocol):
                     flag = flags.FLAG_TRANSFER
                     retour = regex.match(row.detail)
                     if retour:
-                        annee = utils.strpdate(
-                            row.row["date"], "%d.%m.%Y"
-                        ).year  # si on est en janvier , les depenses sont celles de decembre
+                        annee = utils.strpdate(row.row["date"], "%d.%m.%Y").year  # si on est en janvier , les depenses sont celles de decembre
                         if utils.strpdate(row.row["date"], "%d.%m.%Y").month == 1:
                             annee -= 1
                         date = utils.strpdate(f"{retour.group('date')}.{annee}", "%d.%m.%Y")
                         desc = retour.group("desc")
                     else:
                         error = True
-                        self.logger.error(
-                            "attention , probleme regex dans pb pour operation ligne %s", index
-                        )
+                        self.logger.error("attention , probleme regex dans pb pour operation ligne %s", index)
                         continue
                     tiers = "Virement"
                     posting_2 = data.Posting(
@@ -192,18 +205,14 @@ class ImporterPB(importer.ImporterProtocol):
                     flag = flags.FLAG_TRANSFER
                     retour = regex.match(row.detail)
                     if retour:
-                        annee = utils.strpdate(
-                            row.row["date"], "%d.%m.%Y"
-                        ).year  # si on est en janvier , les depenses sont celles de decembre
+                        annee = utils.strpdate(row.row["date"], "%d.%m.%Y").year  # si on est en janvier , les depenses sont celles de decembre
                         if utils.strpdate(row.row["date"], "%d.%m.%Y").month == 1:
                             annee -= 1
                         date = utils.strpdate(retour.group("date"), "%Y-%m-%d")
                         desc = retour.group("desc")
                     else:
                         error = True
-                        self.logger.error(
-                            "attention , probleme regex pour operation ligne %s", index
-                        )
+                        self.logger.error("attention , probleme regex pour operation ligne %s", index)
                         continue
                     tiers = "Virement"
                     try:
@@ -326,9 +335,7 @@ class ImporterPB(importer.ImporterProtocol):
                     flag = flags.FLAG_WARNING
                     retour = regex.match(row.detail)
                     if retour:
-                        annee = utils.strpdate(
-                            row.row["date"], "%d.%m.%Y"
-                        ).year  # si on est en janvier , les depenses sont celles de decembre
+                        annee = utils.strpdate(row.row["date"], "%d.%m.%Y").year  # si on est en janvier , les depenses sont celles de decembre
                         if utils.strpdate(row.row["date"], "%d.%m.%Y").month == 1:
                             annee -= 1
                         date = utils.strpdate(retour.group("date"), "%Y-%m-%d")
@@ -336,9 +343,7 @@ class ImporterPB(importer.ImporterProtocol):
                         desc = retour.group("desc")
                     else:
                         error = True
-                        self.logger.error(
-                            "attention , probleme regex pour operation ligne %s", index
-                        )
+                        self.logger.error("attention , probleme regex pour operation ligne %s", index)
                         continue
                     cpt2 = self.cat(tiers)
                     try:
@@ -414,9 +419,7 @@ class ImporterPB(importer.ImporterProtocol):
                         date_visa = utils.strpdate(f"{retour.group('date')}", "%d.%m.%y")
                     else:
                         error = True
-                        self.logger.error(
-                            "attention , probleme regex pour operation ligne %s", index
-                        )
+                        self.logger.error("attention , probleme regex pour operation ligne %s", index)
                         continue
                     tiers = "Virement"
                     posting_2 = data.Posting(
@@ -487,9 +490,7 @@ class ImporterPB(importer.ImporterProtocol):
                         desc = retour.group("desc")
                     else:
                         error = True
-                        self.logger.error(
-                            "attention , probleme regex pour operation ligne %s", index
-                        )
+                        self.logger.error("attention , probleme regex pour operation ligne %s", index)
                         continue
                     posting_2 = data.Posting(
                         account=cpt2,
@@ -543,9 +544,7 @@ class ImporterPB(importer.ImporterProtocol):
                     self.logger.error("moyen %s non implementé", moyen)
         with open(file.name, "r", encoding="windows-1250") as fichier:
             for index, row in enumerate(
-                CsvUnicodeReader(
-                    fichier, champs=["name", "valeur"], ligne_saut=5, champ_detail="detail"
-                ),
+                CsvUnicodeReader(fichier, champs=["name", "valeur"], ligne_saut=5, champ_detail="detail"),
                 6,
             ):
                 date = utils.strpdate(

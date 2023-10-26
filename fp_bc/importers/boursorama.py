@@ -18,7 +18,8 @@ from fp_bc.utils import CsvUnicodeReader
 from fp_bc import utils
 
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
+# ajout des types
 
 
 def short(account_name: str) -> str:
@@ -44,7 +45,7 @@ bc_directives = t.Union[
     data.Query,
     data.Price,
     data.Document,
-    data.Custom,
+    data.Custom
 ]
 
 
@@ -74,10 +75,13 @@ class ImporterBoursorama(importer.ImporterProtocol):
         # permet d'avoir deux comptess bourso et de pouvoir les differenciers au niveau de la config
         return "{}.{}".format(self.__class__.__name__, self.account_id)
 
-    def identify(self, file: t.IO) -> t.Optional[t.Match[str]]:
-        return re.match(r"export-operations-\d\d-\d\d-\d\d\d\d.*.csv", path.basename(file.name))
+    def identify(self, file: t.IO) -> bool:  # type: ignore[override]
+        if bool(re.match(r"export-operations-\d\d-\d\d-\d\d\d\d.*.csv", path.basename(file.name))):
+            return True
+        else:
+            return False
 
-    def file_account(self, _: t.IO) -> str:
+    def file_account(self, _: t.IO) -> str:  # type: ignore[override]
         return self.account_root
 
     def check_before_add(self, entry: data.Transaction) -> None:
@@ -103,13 +107,30 @@ class ImporterBoursorama(importer.ImporterProtocol):
             tiers = tiers.capitalize()
         return tiers
 
-    def extract(self, file: cache._FileMemo, existing_entries: t.Optional[bc_directives] = None) -> t.List[bc_directives]:
+    def extract(self, file: t.IO, existing_entries: t.Optional[t.List[bc_directives]] = None) -> t.List[bc_directives]:  # type: ignore[override]
         # Open the CSV file and create directives.
-        entries = []
+        entries: t.List[bc_directives] = []
         error = False
         with open(file.name, "r", encoding="windows-1252") as fichier:
             for index, row in enumerate(
-                CsvUnicodeReader(fichier, champs=["dateOp", "dateVal", "label", "category", "categoryParent", "amount", "comment", "accountNum", "accountLabel", "accountbalance"], ligne_saut=2, champ_detail="label",), 4,
+                CsvUnicodeReader(
+                    fichier,
+                    champs=[
+                        "dateOp",
+                        "dateVal",
+                        "label",
+                        "category",
+                        "categoryParent",
+                        "amount",
+                        "comment",
+                        "accountNum",
+                        "accountLabel",
+                        "accountbalance",
+                    ],
+                    ligne_saut=2,
+                    champ_detail="label",
+                ),
+                4,
             ):
                 tiers = None
                 cpt2 = None
@@ -125,21 +146,31 @@ class ImporterBoursorama(importer.ImporterProtocol):
                     self.logger.error(f"montant '{row.row['amount']}' invalide pour operation ligne {index}")
                     continue
                 date_releve = utils.strpdate(row.row["dateOp"])
+                number = montant_releve.number
+                if number is None:
+                    number = decimal.Decimal("0")
                 # virement interne
                 if "VIR SEPA MR FRANCOIS PEGORY" in row.detail:
                     cpt2 = "Assets:Banque:SG"
                 if cpt2:  # VIREMENT interne
-                    posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
+                    posting_1 = data.Posting(
+                        account=self.account_root,
+                        units=montant_releve,
+                        cost=None,
+                        flag=None,
+                        meta=None,
+                        price=None,
+                    )
                     posting_2 = data.Posting(
                         account=cpt2,
-                        units=amount.Amount(montant_releve.number * decimal.Decimal("-1"), self.currency),
+                        units=amount.Amount(number * decimal.Decimal("-1"), self.currency),
                         cost=None,
                         flag=None,
                         meta=None,
                         price=None,
                     )
                     tiers = "Virement"
-                    if montant_releve.number < 0:
+                    if number < 0:
                         narration = "%s => %s" % (short(self.account_root), short(cpt2))
                     else:
                         narration = "%s => %s" % (short(cpt2), short(self.account_root))
@@ -175,14 +206,33 @@ class ImporterBoursorama(importer.ImporterProtocol):
                         self.logger.error(f"{row.detail}")
                         continue
                     if self.account_visa:
-                        posting_1 = data.Posting(account=self.account_visa, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
+                        posting_1 = data.Posting(
+                            account=self.account_visa,
+                            units=montant_releve,
+                            cost=None,
+                            flag=None,
+                            meta=None,
+                            price=None,
+                        )
                     else:
-                        posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
+                        posting_1 = data.Posting(
+                            account=self.account_root,
+                            units=montant_releve,
+                            cost=None,
+                            flag=None,
+                            meta=None,
+                            price=None,
+                        )
                     tiers = self.tiers_update_verifie(tiers).strip()
 
                     cpt2 = self.cat(tiers)
                     posting_2 = data.Posting(
-                        account=cpt2, units=amount.Amount(montant_releve.number * -1, self.currency), cost=None, flag=None, meta=None, price=None,
+                        account=cpt2,
+                        units=amount.Amount(number * -1, self.currency),
+                        cost=None,
+                        flag=None,
+                        meta=None,
+                        price=None,
                     )
                     transac = data.Transaction(
                         meta=meta,
