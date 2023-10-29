@@ -13,7 +13,6 @@ from beancount.core import flags
 from beancount.ingest import importer
 from beancount.ingest import cache
 
-from fp_bc.utils import CsvUnicodeReader
 from fp_bc import utils
 
 
@@ -87,12 +86,22 @@ class ImporterSG(importer.ImporterProtocol):
         # Open the CSV file and create directives.
         entries: t.List[bc_directives] = []
         error = False
+        champs1 = ["date", "libelle", "detail", "montant", "devise"]
+        champs2 = ["date", "detail", "montant", "devise", "libelle"]
         with open(file.name, "r", encoding="windows-1252") as fichier:
+            champs = champs1
+            file_open = utils.CsvUnicodeReader(fichier, champs=champs, ligne_saut=2, champ_detail="detail")
+            row = next(file_open)
+            if row["montant"] == "EUR":
+                champs = champs2
+                file_open = utils.CsvUnicodeReader(fichier, champs=champs2, ligne_saut=2, champ_detail="detail")
+                row = next(file_open)
+            if row["devise"] != "EUR":
+                raise Exception("attention la monnaie n'est pas en euro")
+        with open(file.name, "r", encoding="windows-1252") as fichier:
+            file_open = utils.CsvUnicodeReader(fichier, champs=champs, ligne_saut=2, champ_detail="detail")
             for index, row in enumerate(
-                CsvUnicodeReader(fichier,
-                                 champs=["date", "libelle", "detail", "montant", "devise"],
-                                 ligne_saut=2,
-                                 champ_detail="detail"),
+                file_open,
                 start=4
             ):
                 tiers = None
