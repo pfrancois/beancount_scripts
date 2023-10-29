@@ -73,6 +73,9 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         """fonction utiise pour rendre la classe iterable"""
         return self
 
+    def __getitem__(self, key: str) -> t.Any:
+        return self.row[key]
+
     @property
     def detail(self) -> str:
         """retourne le champ detail"""
