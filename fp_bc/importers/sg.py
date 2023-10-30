@@ -47,13 +47,14 @@ bc_directives = t.Union[
 
 
 class ImporterSG(importer.ImporterProtocol):
-    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Union[str, NoneType], tiers_update: t.Optional[t.List[str]] = None) -> None:
+    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Union[str, NoneType], tiers_update: t.Optional[t.List[str]] = None, raise_exc: bool = True) -> None:
         self.logger = logging.getLogger(__file__)  # pylint: disable=W0612
         self.currency = currency
         self.account_root = account_root
         self.account_id = account_id
         self.account_cash = account_cash
         self.tiers_update = tiers_update
+        self.raise_exc = raise_exc
 
     def name(self) -> str:
         # permet d'avoir deux comptes et de pouvoir les differenciers au niveau de la config
@@ -115,16 +116,22 @@ class ImporterSG(importer.ImporterProtocol):
                     montant_releve = amount.Amount(montant, self.currency)
                 except decimal.InvalidOperation:
                     error = True
-                    self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
-                    continue
+                    if self.raise_exc:
+                        raise Exception(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
+                    else:
+                        self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
+                        continue
                 date_releve = utils.strpdate(row.row["date"], "%d/%m/%Y")
                 if "RETRAIT DAB" in row.detail:  # retrait espece
                     regex_retrait = re.compile(r"CARTE \S+ RETRAIT DAB(?: ETRANGER| SG)? (?P<date>\d\d/\d\d)")
                     retour = regex_retrait.match(row.detail)
                     if not retour:
-                        self.logger.error(f"attention , probleme regex_retrait pour operation ligne {index}")
-                        error = True
-                        continue
+                        if self.raise_exc:
+                            raise Exception(f"attention , probleme regex_retrait pour operation ligne {index}")
+                        else:
+                            self.logger.error(f"attention , probleme regex_retrait pour operation ligne {index}")
+                            error = True
+                            continue
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     if self.account_cash:
                         if montant < 0:
@@ -215,11 +222,15 @@ class ImporterSG(importer.ImporterProtocol):
                             date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y")
                         if not tiers:
                             error = True
+                            if self.raise_exc:
+                                raise Exception("attention , probleme regex visa pour operation ligne %s", index)
                             self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                             self.logger.error(f"{row.detail}")
                             continue
                     else:
                         error = True
+                        if self.raise_exc:
+                            raise Exception("attention , probleme regex visa pour operation ligne %s", index)
                         self.logger.error("attention , probleme regex visa pour operation ligne %s", index)
                         self.logger.error(f"{row.detail}")
                         continue
@@ -245,6 +256,8 @@ class ImporterSG(importer.ImporterProtocol):
                         tiers = self.tiers_update_verifie(tiers_1)
                     if "VIR EUROPEEN EMIS" in row.detail and not tiers:
                         error = True
+                        if self.raise_exc:
+                            raise Exception(f"attention , probleme regex pour operation ligne {index}")
                         self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                         continue
                     # prelevement
@@ -255,6 +268,8 @@ class ImporterSG(importer.ImporterProtocol):
                             tiers = self.tiers_update_verifie(tiers_1)
                         else:
                             error = True
+                            if self.raise_exc:
+                                raise Exception(f"attention , probleme regex pour operation ligne {index}")
                             self.logger.error(f"attention , probleme regex pour operation ligne {index}")
                             continue
                     else:
@@ -267,9 +282,7 @@ class ImporterSG(importer.ImporterProtocol):
                                 if isinstance(tiers_1, str) and tiers_1 is not None:
                                     tiers = self.tiers_update_verifie(tiers_1)
                                 else:
-                                    error = True
-                                    self.logger.error(f"attention , probleme regex pour operation ligne {index}")
-                                    continue
+                                    tiers = 'inconnu'
                     if row.in_detail("ECHEANCE PRET"):
                         tiers = "Sg"
                     if not tiers:
