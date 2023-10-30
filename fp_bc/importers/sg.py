@@ -169,13 +169,13 @@ class ImporterSG(importer.ImporterProtocol):
                     continue
                 # virement interne
                 if "GENERATION VIE" in row.detail:
-                    cpt2 = "Assets:Titre:Generation-vie:Cash"
+                    cpt2 = "Assets:Titre:Oddo:Cash"
                 if "CPT 000304781" in row.detail:
                     cpt2 = "Assets:Titre:SG-LivretA"
                 if "CPT 000341517" in row.detail:
                     cpt2 = "Assets:Titre:SG-LDD"
                 if row.in_detail(r"PREL  VERST VOL", row.champ_detail) and row.in_detail(r"DE: SG", row.champ_detail):
-                    cpt2 = "Assets:Titre:PEE:Cash"
+                    cpt2 = "Assets:Titre:Pee:Cash"
                 if cpt2:  # VIREMENT interne
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     posting_2 = data.Posting(
