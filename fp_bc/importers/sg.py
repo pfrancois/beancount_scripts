@@ -61,7 +61,11 @@ class ImporterSG(importer.ImporterProtocol):
         return "{}.{}".format(self.__class__.__name__, self.account_id)
 
     def identify(self, file: cache._FileMemo) -> bool:
-        return bool(re.match(f"{self.account_id}.*.csv", path.basename(file.name)))
+        if bool(re.match(f"{self.account_id}.*.csv", path.basename(file.name))):
+            return True
+        if bool(re.match(f"Export_{self.account_id}.*.csv", path.basename(file.name))):
+            return True
+        return False
 
     def file_account(self, _: cache._FileMemo) -> str:
         return self.account_root
@@ -91,6 +95,7 @@ class ImporterSG(importer.ImporterProtocol):
         champs2 = ["date", "detail", "montant", "devise", "libelle"]
         with open(file.name, "r", encoding="windows-1252") as fichier:
             champs = champs1
+            #determination du type de fichier ?
             file_open = utils.CsvUnicodeReader(fichier, champs=champs, ligne_saut=2, champ_detail="detail")
             row = next(file_open)
             if row["montant"] == "EUR":
@@ -99,6 +104,7 @@ class ImporterSG(importer.ImporterProtocol):
                 row = next(file_open)
             if row["devise"] != "EUR":
                 raise Exception("attention la monnaie n'est pas en euro")
+        # une fois decide, on peut lire le fichier
         with open(file.name, "r", encoding="windows-1252") as fichier:
             file_open = utils.CsvUnicodeReader(fichier, champs=champs, ligne_saut=2, champ_detail="detail")
             for index, row in enumerate(
@@ -121,7 +127,7 @@ class ImporterSG(importer.ImporterProtocol):
                     else:
                         self.logger.error(f"montant '{row.row['montant']}' invalide pour operation ligne {index}")
                         continue
-                date_releve = utils.strpdate(row.row["date"], "%d/%m/%Y")
+                date_releve = utils.strpdate(row.row["date"], "%d/%m/%Y")  # mainenant on prend oujours la adate relevé
                 if "RETRAIT DAB" in row.detail:  # retrait espece
                     regex_retrait = re.compile(r"CARTE \S+ RETRAIT DAB(?: ETRANGER| SG)? (?P<date>\d\d/\d\d)")
                     retour = regex_retrait.match(row.detail)
@@ -237,7 +243,7 @@ class ImporterSG(importer.ImporterProtocol):
                     posting_1 = data.Posting(account=self.account_root, units=montant_releve, cost=None, flag=None, meta=None, price=None,)
                     transac = data.Transaction(
                         meta=meta,
-                        date=date_visa,
+                        date=date_releve,
                         flag=flag,
                         payee=tiers,
                         narration="",
