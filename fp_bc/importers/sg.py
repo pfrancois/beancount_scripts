@@ -95,7 +95,7 @@ class ImporterSG(importer.ImporterProtocol):
         champs2 = ["date", "detail", "montant", "devise", "libelle"]
         with open(file.name, "r", encoding="windows-1252") as fichier:
             champs = champs1
-            #determination du type de fichier ?
+            # determination du type de fichier ?
             file_open = utils.CsvUnicodeReader(fichier, champs=champs, ligne_saut=2, champ_detail="detail")
             row = next(file_open)
             if row["montant"] == "EUR":
