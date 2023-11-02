@@ -222,10 +222,6 @@ class ImporterSG(importer.ImporterProtocol):
                     retour = re.search(reg_visa, row.detail, re.UNICODE | re.IGNORECASE)
                     if retour:
                         tiers = self.tiers_update_verifie(retour.group("desc"))
-                        if date_releve < utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y"):
-                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year - 1}", "%d/%m/%Y")
-                        else:
-                            date_visa = utils.strpdate(f"{retour.group('date')}/{date_releve.year}", "%d/%m/%Y")
                         if not tiers:
                             error = True
                             if self.raise_exc:
