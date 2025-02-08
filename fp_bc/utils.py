@@ -3,6 +3,7 @@
 import decimal
 import re
 import typing as t
+import typing_extensions as te
 import csv
 import logging
 import pprint
@@ -57,7 +58,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         self.ligne_saut = ligne_saut
         self.line = 0
 
-    def __next__(self) -> "CsvUnicodeReader":
+    def __next__(self) -> te.Self:
         """fonction utiise pour rendre la classe iterable"""
         while self.line < self.ligne_saut:
             self.line += 1
@@ -69,7 +70,7 @@ class CsvUnicodeReader:  # pylint: disable=E1136
         self.frais = decimal.Decimal(0)
         return self
 
-    def __iter__(self) -> "CsvUnicodeReader":
+    def __iter__(self) -> te.Self:
         """fonction utiise pour rendre la classe iterable"""
         return self
 

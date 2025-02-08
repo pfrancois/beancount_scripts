@@ -8,11 +8,8 @@ import re
 from beancount import loader
 from beancount.core import data  # pylint:disable=E0611
 from beancount.parser import printer
-from beancount.core import getters
 import beancount.core.account as core_account
-from beancount.core import number
 
-from decimal import Decimal
 
 from . import utils
 
