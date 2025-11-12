@@ -1,6 +1,6 @@
 # here ou will find three importers for [beancount](https://github.com/beancount/beancount)
 ## two for csv from societe generale
- ImporterSG  for "normal account"
+- ImporterSG  for "normal account"
 ## one for csv from postbank: ImporterPB ( not updated)
 # a price source in the folder source
 # a plugin price who transform in price all the cost.

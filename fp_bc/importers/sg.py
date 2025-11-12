@@ -47,7 +47,7 @@ bc_directives = t.Union[
 
 
 class ImporterSG(importer.ImporterProtocol):
-    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Union[str, NoneType], tiers_update: t.Optional[t.List[str]] = None, raise_exc: bool = True) -> None:
+    def __init__(self, currency: str, account_root: str, account_id: str, account_cash: t.Optional[str], tiers_update: t.Optional[t.List[str]] = None, raise_exc: bool = True) -> None:
         self.logger = logging.getLogger(__file__)  # pylint: disable=W0612
         self.currency = currency
         self.account_root = account_root
@@ -85,6 +85,7 @@ class ImporterSG(importer.ImporterProtocol):
                 if re.search(regle_tiers[0], tiers, re.UNICODE | re.IGNORECASE):
                     tiers = regle_tiers[1]
         tiers = tiers.capitalize()
+        tiers = tiers.strip()
         return tiers
 
     def extract(self, file: cache._FileMemo, existing_entries: t.Optional[t.List[bc_directives]] = None) -> t.List[bc_directives]:
